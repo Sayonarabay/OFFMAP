@@ -3037,7 +3037,7 @@ Respond ONLY with valid JSON array (no markdown, no text outside array):
 [{"name":"Exact name in ${wl}","type":"tour|food|museum|night|boat|bike|cook|hike|nature|market|art|local","tagline":"1 sharp sentence — what you actually do and why it sticks with you","duration":"e.g. 3h","price":"from €45/person","rating":"4.8","platform":"getyourguide"}]`;
 
   try{
-    const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:2000,messages:[{role:'user',content:prompt}]})});
+    const res=await fetch('/api/routes/trip',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:2000,messages:[{role:'user',content:prompt}]})});
     const data=await res.json();
     const raw=(data.content||[]).map(b=>b.text||'').join('').replace(/```json|```/g,'').trim();
     const exps=JSON.parse(raw);
