@@ -1,14 +1,9 @@
 {
   "version": 2,
-  "builds": [
-    {"src": "index.html", "use": "@vercel/static"},
-    {"src": "api/**/*.js", "use": "@vercel/node", "config": {"nodeVersion": "20.x"}},
-    {"src": "kb/**/*.json", "use": "@vercel/static"}
-  ],
-"routes": [
-  {"src": "/api/(.*)", "dest": "/api/$1"},
-  {"src": "/kb/(.*)", "dest": "/kb/$1"},
-  {"src": "/.*", "dest": "/index.html"}
-]
- 
+  "buildCommand": "echo 'No build needed'",
+  "outputDirectory": ".",
+  "routes": [
+    {"src": "/api/(.*)", "dest": "/api/$1"},
+    {"src": "/(.*)", "dest": "/index.html", "status": 200}
+  ]
 }
