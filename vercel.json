@@ -6,8 +6,8 @@
     {"src": "kb/**/*.json", "use": "@vercel/static"}
   ],
   "routes": [
-    {"src": "/api/(.*)", "dest": "/api/$1"},
-    {"src": "/kb/(.*)", "dest": "/kb/$1"},
-    {"src": "/(.*)", "dest": "/index.html"}
+  {"src": "/api/(.*)", "dest": "/api/$1"},
+  {"src": "/kb/(.*)", "dest": "/kb/$1"},
+  {"src": "^/(?!api|kb).*", "dest": "/index.html"}
   ]
 }
