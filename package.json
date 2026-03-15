@@ -1,7 +1,7 @@
 {
-  "name": "offmap",
+  "name": "OFFMAP",
   "version": "2.0.0",
   "dependencies": {
-    "@anthropic-ai/sdk": "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"
+    "@anthropic-ai/sdk": "^0.24.3"
   }
 }
