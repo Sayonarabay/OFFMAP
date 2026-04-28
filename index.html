@@ -801,6 +801,7 @@ textarea{resize:none;height:56px;font-size:.82rem}
     </div>
   </div>
   <div class="itin-wrap">
+    <div id="itinPriceBanner" style="display:none;margin-bottom:1.4rem"></div>
     <div class="itin-intro" id="itinIntro" style="display:none"></div>
     <div id="flightCard"></div>
     <div id="mapSection"></div>
@@ -3134,6 +3135,12 @@ function renderResult(s){
   document.getElementById('btnSave').textContent=t('saveBtnLabel');
   document.getElementById('btnSave').classList.remove('added');
   tripHero.style.display='block';
+  // ── Price banner (real prices from MCPs) ──
+  const priceBannerEl=document.getElementById('itinPriceBanner');
+  if(priceBannerEl){
+    if(s.priceBannerHTML){priceBannerEl.innerHTML=s.priceBannerHTML;priceBannerEl.style.display='block';}
+    else priceBannerEl.style.display='none';
+  }
   // Intro + disclaimer
   const intro=document.getElementById('itinIntro');
   if(s.introHTML){intro.innerHTML=s.introHTML;intro.style.display='block';}
@@ -3437,13 +3444,14 @@ async function gen(){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         destination:dest,
-        tripType:'cultural',
+        origin,
+        checkIn:dfv,
+        checkOut:dtv,
         duration:days,
         preferences:activeTags().split(',').map(t=>t.trim()).filter(t=>t.length>0),
         budget:budgetPerPax,
         travelers:numPax,
-        season:'',
-        userProfile:{age:null}
+        lang
       })
     });
 
@@ -3456,6 +3464,33 @@ async function gen(){
     }
 
     const trip=await res.json();
+
+    // Render real price banner if available
+    function renderPriceBanner(trip){
+      const ba=trip.budget_analysis||{};
+      const fl=trip.flight||{};
+      const ht=trip.hotel||{};
+      const fits=ba.fits_budget!==false;
+      const tier=ba.budget_tier||'mid';
+      const tierColors={low:'#dcfce7',mid:'#f0fdf4',tight:'#fef9c3',over:'#fee2e2'};
+      const tierBorder={low:'#86efac',mid:'#86efac',tight:'#fde047',over:'#fca5a5'};
+      const tierLabel={
+        low:{es:'✓ Presupuesto muy holgado',en:'✓ Plenty of budget',fr:'✓ Budget très confortable'},
+        mid:{es:'✓ Presupuesto encaja',en:'✓ Budget fits',fr:'✓ Budget OK'},
+        tight:{es:'⚠ Presupuesto justo',en:'⚠ Budget is tight',fr:'⚠ Budget serré'},
+        over:{es:'✗ Supera el presupuesto',en:'✗ Over budget',fr:'✗ Dépasse le budget'},
+      };
+      const lbl=(tierLabel[tier]||tierLabel.mid)[lang||'es'];
+      return`<div style="background:${tierColors[tier]||'#f0fdf4'};border:1.5px solid ${tierBorder[tier]||'#86efac'};border-radius:12px;padding:1rem 1.2rem;margin-bottom:1.4rem">
+        <div style="font-size:.62rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#4a7c59;margin-bottom:.6rem">${lbl}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem">
+          ${fl.found!==false?`<div><div style="font-size:.58rem;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.2rem">{${{es:'Vuelo ida y vuelta',en:'Return flight',fr:'Vol aller-retour'}[lang||'es']}}</div><div style="font-size:1.1rem;font-weight:700">€${fl.price_per_pax||'—'}</div><div style="font-size:.7rem;color:#6b7280">${fl.airline||''} · ${fl.departure_time||''}</div><a href="${fl.booking_url||'#'}" target="_blank" style="font-size:.65rem;color:#4a7c59;font-weight:700">{${{es:'Buscar vuelo →',en:'Search flight →',fr:'Chercher vol →'}[lang||'es']}}</a></div>`:''}
+          ${ht.found!==false?`<div><div style="font-size:.58rem;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.2rem">{${{es:'Hotel / noche',en:'Hotel / night',fr:'Hôtel / nuit'}[lang||'es']}}</div><div style="font-size:1.1rem;font-weight:700">€${ht.price_per_night||'—'}</div><div style="font-size:.7rem;color:#6b7280">${ht.name||''}</div><a href="${ht.booking_url||'#'}" target="_blank" style="font-size:.65rem;color:#4a7c59;font-weight:700">{${{es:'Ver hotel →',en:'View hotel →',fr:'Voir hôtel →'}[lang||'es']}}</a></div>`:''}
+          <div><div style="font-size:.58rem;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.2rem">{${{es:'Total / persona',en:'Total / person',fr:'Total / personne'}[lang||'es']}}</div><div style="font-size:1.1rem;font-weight:700">€${ba.per_person_total||'—'}</div><div style="font-size:.7rem;color:${fits?'#4a7c59':'#dc2626'}">${fits&&ba.budget_remaining?`±€${ba.budget_remaining} restante`:(fits?'Encaja':'Supera presupuesto')}</div></div>
+        </div>
+      </div>`;
+    }
+
     currentTrip={
       tripId:trip.tripId,
       dest:trip.destination,
@@ -3465,10 +3500,24 @@ async function gen(){
       date:dfv,
       tripName:trip.title,
       introHTML:trip.introduction,
-      transportHTML:`<div style="padding:1rem;border:1px solid #e5dfd3;border-radius:8px"><strong>${trip.transportation?.system||'Transporte'}</strong><p>${trip.transportation?.description||''}</p></div>`,
-      timelineHTML:trip.itinerary?.map((d,i)=>`<div style="margin-bottom:1.5rem"><h3 style="font-family:var(--font-display);font-size:1.1rem;margin-bottom:.5rem">Día ${i+1}: ${d.title}</h3><p style="color:#4a5568;font-size:.9rem">${d.summary||d.theme||''}</p>${d.activities?.map(a=>`<div style="margin-top:.7rem;padding:.7rem;background:#f5f3f0;border-radius:6px"><div style="font-weight:600;font-size:.85rem">${a.time} - ${a.name}</div><div style="font-size:.8rem;color:#9ca3af;margin-top:.3rem">${a.description||''}</div></div>`).join('')}</div>`).join('')||'',
+      priceBannerHTML:renderPriceBanner(trip),
+      transportHTML:`<div style="padding:1rem;border:1px solid #e5dfd3;border-radius:8px"><strong>Transporte</strong></div>`,
+      timelineHTML:trip.itinerary?.map((d,i)=>{
+        const dayNum={es:['Uno','Dos','Tres','Cuatro','Cinco','Seis','Siete','Ocho','Nueve','Diez'],en:['One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten'],fr:['Un','Deux','Trois','Quatre','Cinq','Six','Sept','Huit','Neuf','Dix']}[lang||'es'];
+        return`<div class="day-card">
+          <div class="day-header">
+            <div class="day-num-col"><div class="day-num-big">${i+1}</div><div class="day-num-word">${(dayNum||[])[i]||''}</div></div>
+            <div class="day-title-col"><div class="day-title">${d.title||''}</div><div class="day-story">${d.theme||''}</div></div>
+          </div>
+          <div class="moment moment-m"><div class="moment-time"><span class="moment-label">${{es:'Mañana',en:'Morning',fr:'Matin'}[lang||'es']}</span></div><div class="moment-body"><div class="moment-text">${d.morning||''}</div></div></div>
+          <div class="moment moment-a"><div class="moment-time"><span class="moment-label">${{es:'Tarde',en:'Afternoon',fr:'Après-midi'}[lang||'es']}</span></div><div class="moment-body"><div class="moment-text">${d.afternoon||''}</div></div></div>
+          <div class="moment moment-e"><div class="moment-time"><span class="moment-label">${{es:'Noche',en:'Evening',fr:'Soir'}[lang||'es']}</span></div><div class="moment-body"><div class="moment-text">${d.evening||''}</div></div></div>
+          ${d.gem?`<div class="day-gem"><div class="day-gem-ico"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div><div class="day-gem-txt">${d.gem}</div></div>`:''}
+          ${d.estimated_daily_cost?`<div class="day-cta"><span style="font-size:.7rem;color:#6b7280">{${{es:'Gasto estimado día',en:'Estimated daily spend',fr:'Dépense journalière estimée'}[lang||'es']}}: <strong>€${d.estimated_daily_cost}/persona</strong></span></div>`:''}
+        </div>`;
+      }).join('')||'',
       tipsHTML:trip.personalizedTips?.map(t=>`<div style="padding:.7rem;border-left:3px solid #4a7c59;margin-bottom:.5rem"><p style="font-size:.9rem">• ${t}</p></div>`).join('')||'',
-      recapHTML:`<div style="padding:1rem;background:#f0f7f2;border:1px solid #c6e8d4;border-radius:8px"><strong style="color:#2d5a3d">Presupuesto estimado</strong><p style="margin-top:.5rem;font-size:.9rem">Desde <strong>€${trip.estimatedCost?.budget||'—'}</strong> hasta <strong>€${trip.estimatedCost?.luxury||'—'}</strong></p></div>`,
+      recapHTML:`<div style="padding:1rem;background:#f0f7f2;border:1px solid #c6e8d4;border-radius:8px"><strong style="color:#2d5a3d">{${{es:'Presupuesto estimado',en:'Estimated budget',fr:'Budget estimé'}[lang||'es']}}</strong><p style="margin-top:.5rem;font-size:.9rem">€${trip.budget_analysis?.per_person_total||'—'} {${{es:'por persona',en:'per person',fr:'par personne'}[lang||'es']}}</p></div>`,
       resultHTML:true,
       lang
     };
