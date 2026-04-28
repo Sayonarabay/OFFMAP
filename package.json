@@ -1,7 +1,11 @@
 {
   "name": "OFFMAP",
-  "version": "2.0.0",
+  "version": "3.0.0",
+  "description": "Travel destination finder with real prices via MCP",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.24.3"
+    "@anthropic-ai/sdk": "^0.36.0"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
